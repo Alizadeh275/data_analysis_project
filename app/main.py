@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import Base, engine, get_async_session
+from app.core.database import Base, engine, get_async_session
 from app.services.etl_service import run_etl
 
 @asynccontextmanager
