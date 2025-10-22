@@ -152,7 +152,5 @@ async def refresh_workorders(db: AsyncSession = Depends(get_async_session)):
 
     return {
         "status": "success",
-        "message": "Work orders refreshed successfully.",
-        "long_excel": LONG_EXCEL_PATH,
-        "long_csv": LONG_CSV_PATH,
+        "message": "Work orders refreshed successfully."
     }
