@@ -2,7 +2,7 @@ import pandas as pd
 import re
 from app.core.constants import RENAME_MAP
 
-def clean_and_transform_excel(file_path: str) -> pd.DataFrame:
+def clean_and_transform_wide_excel(file_path: str) -> pd.DataFrame:
     df = pd.read_excel(file_path, header=[1, 2], engine="openpyxl")
 
     # Remove summary columns (both header levels)
