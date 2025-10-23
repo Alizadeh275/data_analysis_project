@@ -1,8 +1,7 @@
-from typing import Optional, List, Dict
+from typing import List, Dict
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import FactWorkOrder, DimLocation, DimDate, DimProjectType, DimStatus
-
 
 class WorkOrderMetrics:
     def __init__(
@@ -12,79 +11,87 @@ class WorkOrderMetrics:
         status_id: int = 0,
         year: int = 0,
         month: int = 0,
+        group_by: List[str] = None,
     ):
         self.location_id = location_id
         self.project_type_id = project_type_id
         self.status_id = status_id
         self.year = year
         self.month = month
+        self.group_by = group_by or []
 
     async def aggregate(self, db: AsyncSession) -> Dict:
-        """
-        Returns chart_data and total_count.
-        Aggregates over all dimensions that are not filtered.
-        """
         filters = []
+        joins = set()
         group_cols = []
 
         query = select(FactWorkOrder.count)
 
-        # Filters
+        # --- Apply Filters ---
         if self.location_id != 0:
             filters.append(FactWorkOrder.location_id == self.location_id)
-        else:
-            group_cols.append(DimLocation.city_name)
-            query = query.join(DimLocation, FactWorkOrder.location_id == DimLocation.id)
-
         if self.project_type_id != 0:
             filters.append(FactWorkOrder.project_type_id == self.project_type_id)
-        else:
-            group_cols.append(DimProjectType.name)
-            query = query.join(DimProjectType, FactWorkOrder.project_type_id == DimProjectType.id)
-
         if self.status_id != 0:
             filters.append(FactWorkOrder.status_id == self.status_id)
-        else:
-            group_cols.append(DimStatus.name)
-            query = query.join(DimStatus, FactWorkOrder.status_id == DimStatus.id)
-
-        # Date
         if self.year != 0 or self.month != 0:
-            query = query.join(DimDate, FactWorkOrder.date_id == DimDate.id)
+            joins.add("date")
             if self.year != 0:
                 filters.append(DimDate.year == self.year)
-            else:
-                group_cols.append(DimDate.year)
             if self.month != 0:
                 filters.append(DimDate.month == self.month)
-            else:
-                group_cols.append(DimDate.month)
-        else:
-            query = query.join(DimDate, FactWorkOrder.date_id == DimDate.id)
-            group_cols.append(DimDate.year)
-            group_cols.append(DimDate.month)
 
-        # Apply filters
+        # --- Handle group_by ---
+        if "location" in self.group_by:
+            joins.add("location")
+            group_cols.append(DimLocation.city_name)
+
+        if "project_type" in self.group_by:
+            joins.add("project_type")
+            group_cols.append(DimProjectType.name)
+
+        if "status" in self.group_by:
+            joins.add("status")
+            group_cols.append(DimStatus.name)
+
+        if "year" in self.group_by or "month" in self.group_by:
+            joins.add("date")
+            if "year" in self.group_by:
+                group_cols.append(DimDate.year)
+            if "month" in self.group_by:
+                group_cols.append(DimDate.month)
+
+        # --- Apply Joins ---
+        if "location" in joins:
+            query = query.join(DimLocation, FactWorkOrder.location_id == DimLocation.id)
+        if "project_type" in joins:
+            query = query.join(DimProjectType, FactWorkOrder.project_type_id == DimProjectType.id)
+        if "status" in joins:
+            query = query.join(DimStatus, FactWorkOrder.status_id == DimStatus.id)
+        if "date" in joins:
+            query = query.join(DimDate, FactWorkOrder.date_id == DimDate.id)
+
+        # --- Apply Filters ---
         if filters:
             query = query.where(and_(*filters))
 
-        # Add grouping and aggregation
-        # Add grouping and aggregation
+        # --- Aggregation ---
         if group_cols:
             query = query.with_only_columns(*group_cols, func.sum(FactWorkOrder.count).label("count"))
             query = query.group_by(*group_cols)
         else:
             query = query.with_only_columns(func.sum(FactWorkOrder.count).label("count"))
 
+        # --- Execute ---
         result = await db.execute(query)
         rows = result.all()
 
+        # --- Format Result ---
         chart_data = []
         for row in rows:
             if group_cols:
                 item = {}
                 for idx, col in enumerate(group_cols):
-                    # Assign human-readable keys
                     if col == DimLocation.city_name:
                         item["city_name"] = row[idx]
                     elif col == DimProjectType.name:
@@ -101,5 +108,4 @@ class WorkOrderMetrics:
                 chart_data.append({"count": row[0]})
 
         total_count = sum(item["count"] for item in chart_data)
-
         return {"total_count": total_count, "chart_data": chart_data}
