@@ -97,44 +97,64 @@ class SimpleLoader(DimensionLoader):
 # ================================
 # Fact Loader
 # ================================
-def prepare_fact_records(df_long: pd.DataFrame, loaders: List[DimensionLoader]):
-    fact_records = []
-    # get mapping dictionaries
-    loc_map = next((l.map for l in loaders if isinstance(l, LocationLoader)), {})
-    date_map = next((l.map for l in loaders if isinstance(l, DateLoader)), {})
-    proj_map = next((l.map for l in loaders if isinstance(l, SimpleLoader) and l.column_name=='project_type'), {})
-    status_map = next((l.map for l in loaders if isinstance(l, SimpleLoader) and l.column_name=='status'), {})
 
-    for _, row in df_long.iterrows():
-        city_name = str(row['city_name']).strip() if not pd.isna(row['city_name']) else None
-        try:
-            dept_code = str(int(row['department_code'])) if not pd.isna(row['department_code']) else None
-        except ValueError:
-            dept_code = None
-        loc_id = loc_map.get((city_name, dept_code))
-        try:
-            date_id = date_map.get((int(row['year']), int(row['month'])))
-        except ValueError:
-            date_id = None
-        proj_id = proj_map.get(str(row['project_type']).strip())
-        status_id = status_map.get(str(row['status']).strip())
-        try:
-            count = int(row['count']) if not pd.isna(row['count']) else 0
-        except ValueError:
-            count = 0
+class FactLoader:
+    def __init__(self, df_long: pd.DataFrame, dimension_maps: Dict[str, Dict]):
+        """
+        df_long: the transformed long-format DataFrame
+        dimension_maps: dictionary with keys 'location', 'date', 'project_type', 'status'
+                        each value is a mapping dict {dimension_value: id}
+        """
+        self.df_long = df_long
+        self.dimension_maps = dimension_maps
+        self.fact_records = []
 
-        fact_records.append({
-            "location_id": loc_id,
-            "date_id": date_id,
-            "project_type_id": proj_id,
-            "status_id": status_id,
-            "count": count
-        })
-    return fact_records
+    def prepare(self):
+        """Map dimension IDs and prepare fact records."""
+        loc_map = self.dimension_maps['location']
+        date_map = self.dimension_maps['date']
+        proj_map = self.dimension_maps['project_type']
+        status_map = self.dimension_maps['status']
+
+        for _, row in self.df_long.iterrows():
+            city_name = str(row['city_name']).strip() if not pd.isna(row['city_name']) else None
+            try:
+                dept_code = str(int(row['department_code'])) if not pd.isna(row['department_code']) else None
+            except ValueError:
+                dept_code = None
+            loc_id = loc_map.get((city_name, dept_code))
+            
+            try:
+                date_id = date_map.get((int(row['year']), int(row['month'])))
+            except ValueError:
+                date_id = None
+
+            proj_id = proj_map.get(str(row['project_type']).strip())
+            status_id = status_map.get(str(row['status']).strip())
+            try:
+                count = int(row['count']) if not pd.isna(row['count']) else 0
+            except ValueError:
+                count = 0
+
+            self.fact_records.append({
+                "location_id": loc_id,
+                "date_id": date_id,
+                "project_type_id": proj_id,
+                "status_id": status_id,
+                "count": count
+            })
+
+    async def insert(self, db: AsyncSession):
+        """Bulk insert fact records."""
+        if self.fact_records:
+            await db.execute(FactWorkOrder.__table__.insert(), self.fact_records)
+            await db.commit()
 
 
 async def load_work_orders_bulk_full(df_long: pd.DataFrame, db: AsyncSession):
-    # initialize loaders
+    # ----------------------
+    # 1. Load Dimensions
+    # ----------------------
     loaders = [
         LocationLoader(df_long),
         DateLoader(df_long),
@@ -142,13 +162,20 @@ async def load_work_orders_bulk_full(df_long: pd.DataFrame, db: AsyncSession):
         SimpleLoader(df_long, 'status', DimStatus)
     ]
 
-    # prepare and insert all dimensions
     for loader in loaders:
         loader.prepare()
         await loader.insert(db)
 
-    # prepare and insert fact records
-    fact_records = prepare_fact_records(df_long, loaders)
-    if fact_records:
-        await db.execute(FactWorkOrder.__table__.insert(), fact_records)
-        await db.commit()
+    # ----------------------
+    # 2. Load Facts
+    # ----------------------
+    dimension_maps = {
+        'location': next(l.map for l in loaders if isinstance(l, LocationLoader)),
+        'date': next(l.map for l in loaders if isinstance(l, DateLoader)),
+        'project_type': next(l.map for l in loaders if isinstance(l, SimpleLoader) and l.column_name=='project_type'),
+        'status': next(l.map for l in loaders if isinstance(l, SimpleLoader) and l.column_name=='status')
+    }
+
+    fact_loader = FactLoader(df_long, dimension_maps)
+    fact_loader.prepare()
+    await fact_loader.insert(db)
