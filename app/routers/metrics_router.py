@@ -6,8 +6,8 @@ from app.services.metrics_service import WorkOrderMetrics
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
-@router.get("/dynamic-sum")
-async def dynamic_sum(
+@router.get("/aggregate")
+async def aggregate_metrics(
     location_id: int = 0,
     project_type_id: int = 0,
     status_id: int = 0,
