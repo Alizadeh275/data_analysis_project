@@ -13,6 +13,8 @@ class WorkOrderMetrics:
         year: Optional[int] = None,
         month: Optional[int] = None,
         group_by: List[str] = None,
+        order_by: Optional[str] = None,
+        order_dir: str = "desc",
     ):
         self.location_id = location_id
         self.project_type_id = project_type_id
@@ -20,6 +22,8 @@ class WorkOrderMetrics:
         self.year = year
         self.month = month
         self.group_by = group_by or []
+        self.order_by = order_by
+        self.order_dir = order_dir
 
     async def aggregate(self, db: AsyncSession) -> Dict:
         filters = []
@@ -79,6 +83,22 @@ class WorkOrderMetrics:
             query = query.group_by(*group_cols)
         else:
             query = query.with_only_columns(func.sum(FactWorkOrder.count).label("count"))
+
+        # --- Ordering ---
+        if self.order_by:
+            field_map = {
+                "location": DimLocation.city_name,
+                "project_type": DimProjectType.name,
+                "status": DimStatus.name,
+                "year": DimDate.year,
+                "month": DimDate.month,
+                "count": func.sum(FactWorkOrder.count),
+            }
+            col = field_map[self.order_by]
+            if self.order_dir == "asc":
+                query = query.order_by(col.asc())
+            else:
+                query = query.order_by(col.desc())
 
         # --- Execute ---
         result = await db.execute(query)
