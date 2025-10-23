@@ -4,12 +4,12 @@ from typing import List, Optional
 from app.core.database import get_async_session
 from app.services.metrics_service import WorkOrderMetrics
 
-router = APIRouter(prefix="/metrics", tags=["Metrics"])
+router = APIRouter(prefix="/aggregations", tags=["Aggregations"])
 
 ALLOWED_GROUP_BY = {"location", "project_type", "status", "year", "month"}
 
-@router.get("/aggregate")
-async def aggregate_metrics(
+@router.get("/sum")
+async def sum_aggregate(
     location_id: Optional[int] = None,
     project_type_id: Optional[int] = None,
     status_id: Optional[int] = None,
@@ -19,25 +19,29 @@ async def aggregate_metrics(
     db: AsyncSession = Depends(get_async_session),
 ):
     """
-    Aggregate work order metrics based on selected filters and group_by dimensions.
+    Return the **sum aggregation** of work order metrics based on optional filters 
+    and user-selected group_by dimensions.
 
-    Filters (optional):
-    - location_id
-    - project_type_id
-    - status_id
-    - year
-    - month
+    **Filters (all optional):**
+    - `location_id` → filter by location
+    - `project_type_id` → filter by project type
+    - `status_id` → filter by work order status
+    - `year` → filter by year
+    - `month` → filter by month
 
-    `group_by` parameter:
-    - Accepts a list of dimensions to group results by.
-    - Allowed values: "location", "project_type", "status", "year", "month"
-    
-    Examples:
-    - /metrics/aggregate?group_by=location
-    - /metrics/aggregate?year=2024&group_by=month
-    - /metrics/aggregate?group_by=location&group_by=status
+    **Group by dimensions:**
+    - `group_by` accepts a list of dimensions to group results by.
+    - Allowed values: `"location"`, `"project_type"`, `"status"`, `"year"`, `"month"`
 
-    Returns 422 if unsupported group_by fields are provided.
+    **Examples:**
+    - `/aggregations/sum?group_by=location`
+    - `/aggregations/sum?year=2024&group_by=month`
+    - `/aggregations/sum?group_by=location&group_by=status`
+
+    Returns **422** if unsupported `group_by` fields are provided.
+
+    **Note:** This endpoint currently only performs **sum aggregation**. 
+    Future endpoints may support other aggregation types (e.g., avg, max, min).
     """
     # --- Validate group_by fields ---
     invalid_fields = [f for f in group_by if f not in ALLOWED_GROUP_BY]
