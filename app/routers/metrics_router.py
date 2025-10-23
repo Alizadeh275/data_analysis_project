@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_session
-from app.services.metrics_service import get_workorder_sum
+from app.services.metrics_service import WorkOrderMetrics
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
@@ -16,14 +16,14 @@ async def get_open_workorder_sum(
     db: AsyncSession = Depends(get_async_session),
 ):
     """
-    Returns total work orders filtered by optional dimensions.
+    Returns total open work orders filtered by optional dimensions.
     Pass 0 to ignore any filter.
     """
-    return await get_workorder_sum(
-        db,
+    metrics = WorkOrderMetrics(
         location_id=location_id,
         project_type_id=project_type_id,
         status_id=status_id,
         year=year,
-        month=month,
+        month=month
     )
+    return await metrics.get_sum(db)
