@@ -20,6 +20,23 @@ async def aggregate_metrics(
 ):
     """
     Aggregate work order metrics based on selected filters and group_by dimensions.
+
+    Filters (optional):
+    - location_id
+    - project_type_id
+    - status_id
+    - year
+    - month
+
+    `group_by` parameter:
+    - Accepts a list of dimensions to group results by.
+    - Allowed values: "location", "project_type", "status", "year", "month"
+    
+    Examples:
+    - /metrics/aggregate?group_by=location
+    - /metrics/aggregate?year=2024&group_by=month
+    - /metrics/aggregate?group_by=location&group_by=status
+
     Returns 422 if unsupported group_by fields are provided.
     """
     # --- Validate group_by fields ---
