@@ -14,8 +14,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Open Work Orders App", lifespan=lifespan)
 
 # Register Routers
-app.include_router(metrics_router)
-app.include_router(etl_router)
+app.include_router(metrics_router,prefix="/open-workorders")
+app.include_router(etl_router, prefix="/open-workorders")
 
 
 

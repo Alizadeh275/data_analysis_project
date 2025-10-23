@@ -5,8 +5,8 @@ from app.services.etl_service import run_etl
 
 router = APIRouter(prefix="/etl", tags=["ETL"])
 
-@router.post("/refresh-open-workorders/")
-async def refresh_workorders(db: AsyncSession = Depends(get_async_session)):
+@router.post("/refresh")
+async def refresh(db: AsyncSession = Depends(get_async_session)):
     try:
         result = await run_etl(db)
         return result
