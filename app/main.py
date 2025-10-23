@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.core.database import Base, engine
-from app.routers.metrics_router import router as metrics_router
+from app.routers.aggregations_router import router as aggregations_router
 from app.routers.etl_router import router as etl_router
 
 @asynccontextmanager
@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Open Work Orders App", lifespan=lifespan)
 
 # Register Routers
-app.include_router(metrics_router,prefix="/open-workorders")
+app.include_router(aggregations_router,prefix="/open-workorders")
 app.include_router(etl_router, prefix="/open-workorders")
 
 

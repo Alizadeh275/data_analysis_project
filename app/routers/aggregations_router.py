@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_async_session
-from app.services.metrics_service import WorkOrderMetrics
+from app.services.aggregations_service import WorkOrderMetrics
 
 router = APIRouter(prefix="/aggregations", tags=["Aggregations"])
 
