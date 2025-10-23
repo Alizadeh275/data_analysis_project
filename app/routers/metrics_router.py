@@ -5,9 +5,8 @@ from app.services.metrics_service import WorkOrderMetrics
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
-
-@router.get("/sum")
-async def get_open_workorder_sum(
+@router.get("/dynamic-sum")
+async def dynamic_sum(
     location_id: int = 0,
     project_type_id: int = 0,
     status_id: int = 0,
@@ -16,8 +15,8 @@ async def get_open_workorder_sum(
     db: AsyncSession = Depends(get_async_session),
 ):
     """
-    Returns total open work orders filtered by optional dimensions.
-    Pass 0 to ignore any filter.
+    Returns work orders aggregated by all unfiltered dimensions.
+    total_count = sum of all combinations in chart_data.
     """
     metrics = WorkOrderMetrics(
         location_id=location_id,
@@ -26,4 +25,4 @@ async def get_open_workorder_sum(
         year=year,
         month=month
     )
-    return await metrics.get_sum(db)
+    return await metrics.aggregate(db)
