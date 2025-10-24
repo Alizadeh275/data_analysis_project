@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.database import Base, engine
 from app.routers.aggregations_router import router as aggregations_router
@@ -15,6 +16,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Open Work Orders App", lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (NOT recommended for production)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/", tags=["Root"])
