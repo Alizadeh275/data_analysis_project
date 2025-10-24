@@ -16,6 +16,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Open Work Orders App", lifespan=lifespan)
 
+
+@app.get("/", tags=["Root"])
+async def root():
+    return {"message": "Welcome to Open Work Orders App! 🚀 Visit /docs for more information."}
+
+
 # Register Routers
 app.include_router(etl_router, prefix="/open-work-orders")
 app.include_router(dimensions_router, prefix="/open-work-orders")
